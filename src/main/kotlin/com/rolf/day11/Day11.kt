@@ -61,15 +61,9 @@ class Day11 : Day() {
         return position to maxPower
     }
 
-    // TODO: Can we make a function for this to make a selection of a box from x,y
     private fun sumCells(grid: MatrixInt, startX: Int, startY: Int, size: Int): Int {
-        var sum = 0
-        for (y in startY until startY + size) {
-            for (x in startX until startX + size) {
-                sum += grid.get(x, y)
-            }
-        }
-        return sum
+        return grid.subMatrix(Point(startX, startY), Point(startX + size - 1, startY + size - 1))
+            .allElements().sum()
     }
 
     private fun calculatePowerLevel(point: Point, serialNumber: Int): Int {
