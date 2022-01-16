@@ -11,86 +11,109 @@ fun main() {
 
 class Day15 : Day() {
     override fun solve1(lines: List<String>) {
-        // Load grid
         val grid = MatrixString.build(splitLines(lines))
+        val elves = getElves(grid).toMutableList()
+        val goblins = getGoblins(grid).toMutableList()
+        clearFromGrid(grid, elves + goblins)
+        val score = takeTurns(grid, elves, goblins, 3, 5000)
+        println(score)
+    }
 
-        // Give every elf lower case letters and goblins upper case
-        val elfs = mutableMapOf<String, Unit>()
-        val goblins = mutableMapOf<String, Unit>()
-        for (point in grid.allPoints()) {
-            val value = grid.get(point)
-            val newValue = when (value) {
-                "E" -> {
-                    val e = ('a' + elfs.size).toString()
-                    elfs[e] = Unit(e, 200, point)
-                    "."
-                }
-                "G" -> {
-                    val g = ('A' + goblins.size).toString()
-                    goblins[g] = Unit(g, 200, point)
-                    "."
-                }
-                else -> value
-            }
-            grid.set(point, newValue)
-        }
-        println(combine(grid, elfs.values + goblins.values))
+    override fun solve2(lines: List<String>) {
+        val grid = MatrixString.build(splitLines(lines))
+        val elves = getElves(grid)
+        val goblins = getGoblins(grid)
+        clearFromGrid(grid, elves + goblins)
 
-        // Take turns in order
-        for (i in 0 until 5000) {
-            val units = (elfs.values + goblins.values).sorted()
-            for ((index, unit) in units.withIndex()) {
-                takeTurn(unit, grid, elfs, goblins)
-                if (elfs.isEmpty() || goblins.isEmpty()) {
-                    val elfHp = elfs.values.map { it.hp }.sum()
-                    val goblinHp = goblins.values.map { it.hp }.sum()
-                    println()
-                    println(combine(grid, elfs.values + goblins.values))
-                    var n = i
-                    if (index + 1 == units.size) {
-                        println("End of round")
-                        n++
-                    }
-                    println(n)
-                    println("${elfs.size}: $elfHp")
-                    println("${goblins.size}: $goblinHp")
-                    println(n * (elfHp + goblinHp))
-                    return
-                }
+        for (attackPower in 4 until 5000) {
+            val newElves = elves.map { it.copy() }.toMutableList()
+            val newGoblins = goblins.map { it.copy() }.toMutableList()
+            val score = takeTurns(grid, newElves, newGoblins, attackPower, 5000)
+            if (newElves.size == elves.size) {
+                println(score)
+                return
             }
-            println()
-            println(combine(grid, elfs.values + goblins.values))
-            println(i)
         }
     }
 
-    private fun combine(grid: MatrixString, list: List<Unit>): MatrixString {
-        val copy = grid.copy()
-        for (unit in list) {
-            copy.set(unit.location, unit.id)
+    private fun getElves(grid: MatrixString): List<Unit> {
+        val result = mutableListOf<Unit>()
+        for (point in grid.allPoints()) {
+            when (grid.get(point)) {
+                "E" -> {
+                    val e = ('a' + result.size).toString()
+                    result.add(Unit(e, 200, point))
+                }
+            }
         }
-        return copy
+        return result
+    }
+
+    private fun getGoblins(grid: MatrixString): List<Unit> {
+        val result = mutableListOf<Unit>()
+        for (point in grid.allPoints()) {
+            when (grid.get(point)) {
+                "G" -> {
+                    val g = ('A' + result.size).toString()
+                    result.add(Unit(g, 200, point))
+                }
+            }
+        }
+        return result
+    }
+
+    private fun clearFromGrid(grid: MatrixString, units: List<Unit>) {
+        for (unit in units) {
+            grid.set(unit.location, ".")
+        }
+    }
+
+    private fun takeTurns(
+        grid: MatrixString,
+        elves: MutableList<Unit>,
+        goblins: MutableList<Unit>,
+        attackPower: Int,
+        turns: Int
+    ): Int {
+        for (i in 0 until turns) {
+            val units = (elves + goblins).sorted()
+            for ((index, unit) in units.withIndex()) {
+                takeTurn(unit, grid, elves, goblins, attackPower)
+                if (elves.isEmpty() || goblins.isEmpty()) {
+                    val elfHp = elves.map { it.hp }.sum()
+                    val goblinHp = goblins.map { it.hp }.sum()
+                    var n = i
+                    if (index + 1 == units.size) {
+                        // Exactly at the end of the roundm add 1 more iteration
+                        n++
+                    }
+                    return n * (elfHp + goblinHp)
+                }
+            }
+        }
+        return 0
     }
 
     private fun takeTurn(
         unit: Unit,
         grid: MatrixString,
-        elfs: MutableMap<String, Unit>,
-        goblins: MutableMap<String, Unit>
+        elves: MutableList<Unit>,
+        goblins: MutableList<Unit>,
+        attackPower: Int
     ) {
         // Make sure this unit didn't die before its turn
         if (unit.isDead()) return
 
         // Each turn:
         // - Find targets
-        val targets = getTargets(unit, elfs, goblins)
+        val targets = getTargets(unit, elves, goblins)
         var targetsInRange = getInRange(unit, targets)
 
         // - No target closes?
         if (targetsInRange.isEmpty()) {
             //   - Find reachable targets
             //   - Pick closest (on tie: first in reading order)
-            val path = findClosestTarget(unit, targets, grid, elfs, goblins)
+            val path = findClosestTarget(unit, targets, grid, elves, goblins)
 
             //   - Take step (on tie: first in reading order)
             if (path.isNotEmpty()) {
@@ -106,11 +129,11 @@ class Day15 : Day() {
             //   - Pick one with least health (on tie: first in reading order)
             val target = pickWeakestTarget(targetsInRange)
             //   - Attack
-            attack(target)
+            attack(target, attackPower)
             //   - Remove if target dies
             if (target.isDead()) {
-                elfs.remove(target.id)
-                goblins.remove(target.id)
+                elves.remove(target)
+                goblins.remove(target)
             }
         }
     }
@@ -119,13 +142,16 @@ class Day15 : Day() {
         unit: Unit,
         targets: List<Unit>,
         grid: MatrixString,
-        elfs: MutableMap<String, Unit>,
-        goblins: MutableMap<String, Unit>
+        elves: MutableList<Unit>,
+        goblins: MutableList<Unit>
     ): List<Point> {
+//        val notAllowed =
+//        grid.findPath(unit.location, targets.map { it.location }, )
+
         val seen: MutableSet<Point> = mutableSetOf(unit.location)
         val paths: ArrayDeque<List<Point>> = ArrayDeque()
         val copyGrid = grid.copy()
-        for (u in elfs.values + goblins.values - unit) {
+        for (u in elves + goblins - unit) {
             copyGrid.set(u.location, "#")
             seen.add(u.location)
         }
@@ -171,79 +197,13 @@ class Day15 : Day() {
         return emptyList()
     }
 
-    private fun getTargets(
-        unit: Unit,
-        elfs: MutableMap<String, Unit>,
-        goblins: MutableMap<String, Unit>
-    ): List<Unit> {
-        return if (unit.isElf()) goblins.values.toList() else elfs.values.toList()
+    private fun getTargets(unit: Unit, elves: MutableList<Unit>, goblins: MutableList<Unit>): List<Unit> {
+        return if (unit.isElf()) goblins else elves
     }
 
     private fun getInRange(unit: Unit, targets: List<Unit>): List<Unit> {
         return targets.filter { it.location.distance(unit.location) == 1 }
     }
-
-//    private fun pickClosestTarget(
-//        unit: Unit,
-//        targetsInRange: List<Unit>,
-//        grid: MatrixString,
-//        elfs: MutableMap<String, Unit>,
-//        goblins: MutableMap<String, Unit>
-//    ): Pair<Unit, List<Point>> {
-//        val options = mutableMapOf<Int, MutableList<Pair<Unit, List<Point>>>>()
-//        for (target in targetsInRange.sortedBy { it.location.distance(unit.location) }) {
-//            val distanceMatrix = MatrixInt.buildForShortestPath(grid, "#")
-//            // Add all units, except the unit and the target
-//            for (u in elfs.values + goblins.values - unit - target) {
-//                distanceMatrix.set(u.location, Int.MIN_VALUE)
-//            }
-//            val minDistance = options.keys.minOrNull() ?: Int.MAX_VALUE
-//            val distance = distanceMatrix.shortestPath(unit.location, target.location, maxDistance = minDistance)
-//            val list = options.computeIfAbsent(distance.size) { mutableListOf() }
-//            list.add(target to distance)
-//        }
-//
-//        // Get closest targets
-//        val closest = options.minByOrNull { it.key }!!.value
-//        // On tie: first in reading order
-//        return closest.minByOrNull { it.first }!!
-//    }
-
-//    private fun takeStep(
-//        unit: Unit,
-//        target: Pair<Unit, List<Point>>,
-//        grid: MatrixString,
-//        elfs: MutableMap<String, Unit>,
-//        goblins: MutableMap<String, Unit>
-//    ): Unit {
-//        val distanceMatrix = MatrixInt.buildForShortestPath(grid, "#")
-//        // Add all units, except the unit and the target
-//        for (u in elfs.values + goblins.values - unit - target) {
-//            distanceMatrix.set(u.location, Int.MIN_VALUE)
-//        }
-//        distanceMatrix.shortestPath(target.location, unit.location)
-//
-//        // Look for 1 values surrounding, going from top, left, right, bottom. First is winner.
-//        val neighbours = listOf(
-//            grid.getUp(unit.location),
-//            grid.getLeft(unit.location),
-//            grid.getRight(unit.location),
-//            grid.getDown(unit.location)
-//        )
-//
-//        var bestValue = Int.MAX_VALUE
-//        var bestNeighbour: Point? = null
-//        for (neighbour in neighbours.filterNotNull()) {
-//            val value = distanceMatrix.get(neighbour)
-//            if (value in 0 until bestValue) {
-//                bestValue = value
-//                bestNeighbour = neighbour
-//            }
-//        }
-//        if (bestNeighbour != null) {
-//            unit.location = bestNeighbour
-//        }
-//    }
 
     private fun pickWeakestTarget(targetsInRange: List<Unit>): Unit {
         var target: Unit? = null
@@ -255,11 +215,13 @@ class Day15 : Day() {
         return target!!
     }
 
-    private fun attack(target: Unit) {
-        target.hp -= 3
-    }
-
-    override fun solve2(lines: List<String>) {
+    private fun attack(target: Unit, attackPower: Int) {
+        // Goblins hit elves with 3
+        if (target.isElf()) {
+            target.hp -= 3
+        } else {
+            target.hp -= attackPower
+        }
     }
 }
 
@@ -276,5 +238,20 @@ data class Unit(val id: String, var hp: Int, var location: Point) : Comparable<U
         val yCompare = location.y.compareTo(other.location.y)
         if (yCompare != 0) return yCompare
         return location.x.compareTo(other.location.x)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Unit
+
+        if (id != other.id) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return id.hashCode()
     }
 }

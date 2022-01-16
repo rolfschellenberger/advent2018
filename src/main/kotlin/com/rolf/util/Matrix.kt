@@ -1,6 +1,7 @@
 package com.rolf.util
 
 import java.util.*
+import kotlin.collections.ArrayDeque
 import kotlin.math.abs
 
 open class Matrix<T>(internal val input: MutableList<MutableList<T>>) {
@@ -277,6 +278,64 @@ open class Matrix<T>(internal val input: MutableList<MutableList<T>>) {
                 }
             }
         }
+    }
+
+    fun findPath(
+        from: Point,
+        to: Point,
+        notAllowedValues: Set<T> = emptySet(),
+        diagonal: Boolean = false
+    ): List<Point> {
+        return findPath(from, setOf(to), notAllowedValues, diagonal)
+    }
+
+    fun findPath(
+        from: Point,
+        to: Set<Point>,
+        notAllowedValues: Set<T> = emptySet(),
+        diagonal: Boolean = false
+    ): List<Point> {
+        val paths: ArrayDeque<List<Point>> = ArrayDeque()
+        val seen: MutableSet<Point> = mutableSetOf(from)
+        allPoints()
+            .filter { notAllowedValues.contains(get(it)) }
+            .forEach { seen.add(it) }
+
+        // Function to filter allowed locations
+        fun isAllowed(point: Point): Boolean {
+            if (seen.contains(point)) return false
+            if (notAllowedValues.contains(get(point))) return false
+            return true
+        }
+
+        fun getNeighbours(point: Point): List<Point> {
+            return getNeighbours(point, diagonal = diagonal).filter { isAllowed(it) }
+        }
+
+        // Start with the neighbours of the starting point that are allowed to visit.
+        for (neighbour in getNeighbours(from)) {
+            paths.add(listOf(neighbour))
+        }
+
+        while (paths.isNotEmpty()) {
+            val path = paths.removeFirst()
+            val pathEnd: Point = path.last()
+
+            // Arrived at destination?
+            if (to.contains(pathEnd)) {
+                return path
+            }
+
+            // Continue only new locations
+            if (pathEnd !in seen) {
+                seen.add(pathEnd)
+
+                for (neighbour in getNeighbours(from)) {
+                    paths.add(path + neighbour)
+                }
+            }
+        }
+        return emptyList()
     }
 
     open fun copy(): Matrix<T> {
