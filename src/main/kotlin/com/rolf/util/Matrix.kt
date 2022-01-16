@@ -1,7 +1,5 @@
 package com.rolf.util
 
-import java.util.*
-import kotlin.collections.ArrayDeque
 import kotlin.math.abs
 
 open class Matrix<T>(internal val input: MutableList<MutableList<T>>) {
@@ -104,6 +102,10 @@ open class Matrix<T>(internal val input: MutableList<MutableList<T>>) {
 
     fun count(value: T): Int {
         return allElements().filter { it == value }.count()
+    }
+
+    fun find(value: T): List<Point> {
+        return allPoints().filter { get(it) == value }
     }
 
     fun wrap(point: Point): Point {
@@ -280,36 +282,44 @@ open class Matrix<T>(internal val input: MutableList<MutableList<T>>) {
         }
     }
 
-    fun findPath(
+    fun findPathByValue(
         from: Point,
         to: Point,
         notAllowedValues: Set<T> = emptySet(),
         diagonal: Boolean = false
     ): List<Point> {
-        return findPath(from, setOf(to), notAllowedValues, diagonal)
+        val notAllowed = notAllowedValues.map { find(it) }.flatten().toSet()
+        return findPath(from, setOf(to), notAllowed, diagonal)
+    }
+
+    fun findPath(
+        from: Point,
+        to: Point,
+        notAllowedLocations: Set<Point> = emptySet(),
+        diagonal: Boolean = false
+    ): List<Point> {
+        return findPath(from, setOf(to), notAllowedLocations, diagonal)
     }
 
     fun findPath(
         from: Point,
         to: Set<Point>,
-        notAllowedValues: Set<T> = emptySet(),
+        notAllowedLocations: Set<Point> = emptySet(),
         diagonal: Boolean = false
     ): List<Point> {
         val paths: ArrayDeque<List<Point>> = ArrayDeque()
         val seen: MutableSet<Point> = mutableSetOf(from)
-        allPoints()
-            .filter { notAllowedValues.contains(get(it)) }
-            .forEach { seen.add(it) }
+        seen.addAll(notAllowedLocations)
 
         // Function to filter allowed locations
         fun isAllowed(point: Point): Boolean {
             if (seen.contains(point)) return false
-            if (notAllowedValues.contains(get(point))) return false
+            if (notAllowedLocations.contains(point)) return false
             return true
         }
 
         fun getNeighbours(point: Point): List<Point> {
-            return getNeighbours(point, diagonal = diagonal).filter { isAllowed(it) }
+            return getNeighbours(point, diagonal = diagonal).filter { isAllowed(it) }.sorted()
         }
 
         // Start with the neighbours of the starting point that are allowed to visit.
@@ -330,7 +340,7 @@ open class Matrix<T>(internal val input: MutableList<MutableList<T>>) {
             if (pathEnd !in seen) {
                 seen.add(pathEnd)
 
-                for (neighbour in getNeighbours(from)) {
+                for (neighbour in getNeighbours(pathEnd)) {
                     paths.add(path + neighbour)
                 }
             }
@@ -410,52 +420,6 @@ open class MatrixString(input: MutableList<MutableList<String>>) : Matrix<String
 
 open class MatrixInt(input: MutableList<MutableList<Int>>) : Matrix<Int>(input) {
 
-    fun shortestPath(
-        from: Point,
-        to: Point,
-        diagonal: Boolean = false,
-        prioritizeByDistance: Boolean = false,
-        maxDistance: Int = Int.MAX_VALUE
-    ): List<Point> {
-        // Start from 0 at the starting point
-        set(from, 0)
-
-        val compareBySteps: Comparator<Pair<Int, Point>> = compareBy { it.first }
-        val compareByDistanceToEnd: Comparator<Pair<Int, Point>> = compareBy { it.second.distance(to) }
-        val priorityQueue = PriorityQueue(if (prioritizeByDistance) compareByDistanceToEnd else compareBySteps)
-        priorityQueue.add(get(from) to from)
-
-        val compareBySteps2: Comparator<Pair<Int, Pair<Point, List<Point>>>> = compareBy { it.first }
-        val compareByDistanceToEnd2: Comparator<Pair<Int, Pair<Point, List<Point>>>> =
-            compareBy { it.second.first.distance(to) }
-        val priorityQueue2 = PriorityQueue(if (prioritizeByDistance) compareByDistanceToEnd2 else compareBySteps2)
-        priorityQueue2.add(get(from) to (from to emptyList()))
-
-        var result = maxDistance
-        var resultPath: List<Point> = listOf()
-        while (priorityQueue2.isNotEmpty()) {
-            val next = priorityQueue2.remove()
-            val minSteps = next.first
-            val location = next.second.first
-            val path = next.second.second
-
-            if (location == to) {
-                result = minOf(result, minSteps)
-                resultPath = path
-            } else if (minSteps < result) {
-                // Push the neighbours to the steps queue
-                for (neighbour in getNeighbours(location, diagonal = diagonal)) {
-                    if (get(neighbour) > minSteps) {
-                        set(neighbour, minSteps + 1)
-                        priorityQueue.add(minSteps + 1 to neighbour)
-                        priorityQueue2.add(minSteps + 1 to (neighbour to path + neighbour))
-                    }
-                }
-            }
-        }
-        return resultPath
-    }
-
     override fun copy(): MatrixInt {
         return MatrixInt(super.copy().input)
     }
@@ -467,19 +431,6 @@ open class MatrixInt(input: MutableList<MutableList<Int>>) : Matrix<Int>(input) 
 
         fun build(input: List<List<String>>): MatrixInt {
             return MatrixInt(input.map { list -> list.map { it.toInt() }.toMutableList() }.toMutableList())
-        }
-
-        fun buildForShortestPath(matrix: MatrixString, wallValue: String): MatrixInt {
-            // Every field will get the maximum penalty to find the shortest path
-            val result = buildDefault(matrix.width(), matrix.height(), Int.MAX_VALUE)
-            // The wall values are going to be replaced with the lowest value, so they will not be picked during
-            // the shortest path traversal
-            for (point in matrix.allPoints()) {
-                if (matrix.get(point) == wallValue) {
-                    result.set(point, Int.MIN_VALUE)
-                }
-            }
-            return result
         }
     }
 }

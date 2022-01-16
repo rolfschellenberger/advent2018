@@ -145,56 +145,9 @@ class Day15 : Day() {
         elves: MutableList<Unit>,
         goblins: MutableList<Unit>
     ): List<Point> {
-//        val notAllowed =
-//        grid.findPath(unit.location, targets.map { it.location }, )
-
-        val seen: MutableSet<Point> = mutableSetOf(unit.location)
-        val paths: ArrayDeque<List<Point>> = ArrayDeque()
-        val copyGrid = grid.copy()
-        for (u in elves + goblins - unit) {
-            copyGrid.set(u.location, "#")
-            seen.add(u.location)
-        }
-
-        // Look for 1 values surrounding, going from top, left, right, bottom. First is winner.
-        val startNeighbours = listOfNotNull(
-            grid.getUp(unit.location),
-            grid.getLeft(unit.location),
-            grid.getRight(unit.location),
-            grid.getDown(unit.location)
-        )
-        for (neighbour in startNeighbours) {
-            if (grid.get(neighbour) == ".") {
-                paths.add(listOf(neighbour))
-            }
-        }
-
-        while (paths.isNotEmpty()) {
-            val path = paths.removeFirst()
-            val pathEnd: Point = path.last()
-
-            // If this is one of our destinations, return it
-            if (pathEnd in targets.map { it.location }) {
-                return path
-            }
-
-            if (pathEnd !in seen) {
-                seen.add(pathEnd)
-
-                val neighbours = listOfNotNull(
-                    grid.getUp(pathEnd),
-                    grid.getLeft(pathEnd),
-                    grid.getRight(pathEnd),
-                    grid.getDown(pathEnd)
-                )
-                for (neighbour in neighbours) {
-                    if (grid.get(neighbour) == ".") {
-                        paths.add(path + neighbour)
-                    }
-                }
-            }
-        }
-        return emptyList()
+        val notAllowed = (elves + goblins - unit - targets).map { it.location }.toMutableSet()
+        notAllowed.addAll(grid.allPoints().filter { grid.get(it) == "#" })
+        return grid.findPath(unit.location, targets.map { it.location }.toSet(), notAllowed)
     }
 
     private fun getTargets(unit: Unit, elves: MutableList<Unit>, goblins: MutableList<Unit>): List<Unit> {
