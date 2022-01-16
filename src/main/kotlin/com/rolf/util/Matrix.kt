@@ -351,7 +351,13 @@ open class MatrixString(input: MutableList<MutableList<String>>) : Matrix<String
 
 open class MatrixInt(input: MutableList<MutableList<Int>>) : Matrix<Int>(input) {
 
-    fun shortestPath(from: Point, to: Point, diagonal: Boolean = false, prioritizeByDistance: Boolean = false): Int {
+    fun shortestPath(
+        from: Point,
+        to: Point,
+        diagonal: Boolean = false,
+        prioritizeByDistance: Boolean = false,
+        maxDistance: Int = Int.MAX_VALUE
+    ): List<Point> {
         // Start from 0 at the starting point
         set(from, 0)
 
@@ -360,25 +366,35 @@ open class MatrixInt(input: MutableList<MutableList<Int>>) : Matrix<Int>(input) 
         val priorityQueue = PriorityQueue(if (prioritizeByDistance) compareByDistanceToEnd else compareBySteps)
         priorityQueue.add(get(from) to from)
 
-        var result = Int.MAX_VALUE
-        while (priorityQueue.isNotEmpty()) {
-            val next = priorityQueue.remove()
+        val compareBySteps2: Comparator<Pair<Int, Pair<Point, List<Point>>>> = compareBy { it.first }
+        val compareByDistanceToEnd2: Comparator<Pair<Int, Pair<Point, List<Point>>>> =
+            compareBy { it.second.first.distance(to) }
+        val priorityQueue2 = PriorityQueue(if (prioritizeByDistance) compareByDistanceToEnd2 else compareBySteps2)
+        priorityQueue2.add(get(from) to (from to emptyList()))
+
+        var result = maxDistance
+        var resultPath: List<Point> = listOf()
+        while (priorityQueue2.isNotEmpty()) {
+            val next = priorityQueue2.remove()
             val minSteps = next.first
-            val location = next.second
+            val location = next.second.first
+            val path = next.second.second
 
             if (location == to) {
                 result = minOf(result, minSteps)
+                resultPath = path
             } else if (minSteps < result) {
                 // Push the neighbours to the steps queue
                 for (neighbour in getNeighbours(location, diagonal = diagonal)) {
                     if (get(neighbour) > minSteps) {
                         set(neighbour, minSteps + 1)
                         priorityQueue.add(minSteps + 1 to neighbour)
+                        priorityQueue2.add(minSteps + 1 to (neighbour to path + neighbour))
                     }
                 }
             }
         }
-        return result
+        return resultPath
     }
 
     override fun copy(): MatrixInt {
