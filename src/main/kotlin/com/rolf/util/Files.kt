@@ -52,3 +52,21 @@ fun groupLines(lines: List<String>, match: String): List<List<String>> {
     groups.add(group)
     return groups
 }
+
+fun trim(lines: List<String>): List<String> {
+    var from = 0
+    var to = lines.lastIndex
+    for (i in lines.indices) {
+        if (lines[i].isNotBlank()) {
+            from = i
+            break
+        }
+    }
+    for (i in lines.indices.reversed()) {
+        if (lines[i].isNotBlank()) {
+            to = i
+            break
+        }
+    }
+    return lines.subList(from, to + 1)
+}
