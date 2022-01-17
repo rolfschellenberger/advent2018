@@ -1,6 +1,7 @@
 package com.rolf.day16
 
 import com.rolf.Day
+import com.rolf.util.findPairs
 import com.rolf.util.groupLines
 import com.rolf.util.trim
 
@@ -9,7 +10,7 @@ fun main() {
 }
 
 class Day16 : Day() {
-    val allOpCodes = listOf(
+    private val allOpCodes = listOf(
         "addr", "addi",
         "mulr", "muli",
         "banr", "bani",
@@ -36,60 +37,16 @@ class Day16 : Day() {
         val (examples, testProgram) = group(lines)
         val toTest = groupLines(examples, "")
 
-        val codeToOpCode = mutableMapOf<Int, String>()
-        while (codeToOpCode.size < allOpCodes.size) {
-            val opCodeToCode = mutableMapOf<Int, MutableSet<String>>()
-            for (example in toTest) {
-                val options = findMatches(example)
-
-                // Store the possible opcode matches
-                for (option in options) {
-                    val list = opCodeToCode.computeIfAbsent(option.value) { mutableSetOf() }
-                    list.add(option.key)
-                }
-            }
-
-            // Remove known codes
-            codeToOpCode.keys.forEach { opCodeToCode.remove(it) }
-            opCodeToCode.forEach { it.value.removeAll(codeToOpCode.values) }
-
-            // Single matches left?
-            for ((key, value) in opCodeToCode.filter { it.value.size == 1 }) {
-                codeToOpCode[key] = value.first()
-            }
-
-            // Unique matches left?
-            val opCounts = opCodeToCode.values.flatten().groupingBy { it }.eachCount()
-            for (unique in opCounts.filter { it.value == 1 }) {
-                val operand = unique.key
-                for ((key, value) in opCodeToCode) {
-                    if (value.contains(operand)) {
-                        codeToOpCode[key] = operand
-                    }
-                }
-            }
-
-            // One last unknown code left? 14?
-            val diffId = (0..15).toSet() - codeToOpCode.keys
-            val diffOp = allOpCodes - codeToOpCode.values
-            if (diffId.size == 1 && diffOp.size == 1) {
-                codeToOpCode[diffId.first()] = diffOp.first()
+        val options = mutableMapOf<Int, MutableSet<String>>()
+        for (example in toTest) {
+            val matches = findMatches(example)
+            for ((key, value) in matches) {
+                val set = options.computeIfAbsent(value) { mutableSetOf() }
+                set.add(key)
             }
         }
-
-        println(codeToOpCode)
-        runProgram(testProgram, codeToOpCode)
-    }
-
-    private fun runProgram(testProgram: List<String>, codeToOpCode: MutableMap<Int, String>) {
-        var registers = IntArray(4) { 0 }
-        println(testProgram.size)
-        for (instruction in testProgram) {
-            val parts = instruction.split(" ").map { it.toInt() }
-            registers = execute(codeToOpCode[parts[0]]!!, parts, registers)
-//            println(registers.toList())
-        }
-        println(registers.toList())
+        val pairs = findPairs(options)
+        val registers = runProgram(testProgram, pairs)
         println(registers[0])
     }
 
@@ -122,10 +79,11 @@ class Day16 : Day() {
         val after = stateToArray(example[2])
 
         val options = mutableMapOf<String, Int>()
+        val parts = instruction.split(" ").map { it.toInt() }
+        val opIntValue = parts[0]
         for (opCode in allOpCodes) {
-            val parts = instruction.split(" ").map { it.toInt() }
             val result = execute(opCode, parts, before)
-            if (result.contentEquals(after)) options[opCode] = parts[0]
+            if (result.contentEquals(after)) options[opCode] = opIntValue
         }
         return options
     }
@@ -156,9 +114,18 @@ class Day16 : Day() {
             "gtrr" -> result[parts[3]] = if (result[parts[1]] > result[parts[2]]) 1 else 0
             "eqir" -> result[parts[3]] = if (parts[1] == result[parts[2]]) 1 else 0
             "eqri" -> result[parts[3]] = if (result[parts[1]] == parts[2]) 1 else 0
-            "eqrr" -> result[parts[3]] = if (result[parts[1]] > result[parts[2]]) 1 else 0
+            "eqrr" -> result[parts[3]] = if (result[parts[1]] == result[parts[2]]) 1 else 0
             else -> throw Exception("Unknown opcode $opcodeOverride")
         }
         return result
+    }
+
+    private fun runProgram(testProgram: List<String>, codeToOpCode: Map<Int, String>): IntArray {
+        var registers = IntArray(4) { 0 }
+        for (instruction in testProgram) {
+            val parts = instruction.split(" ").map { it.toInt() }
+            registers = execute(codeToOpCode[parts[0]]!!, parts, registers)
+        }
+        return registers
     }
 }
