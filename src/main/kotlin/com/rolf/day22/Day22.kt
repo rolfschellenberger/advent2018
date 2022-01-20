@@ -25,48 +25,15 @@ class Day22 : Day() {
         val (x, y) = lines[1].split(" ")[1].split(",").map { it.toInt() }
         val target = Point(x, y)
 
-        val grid = buildErosionGrid(target, depth, 10)
+        val grid = buildErosionGrid(target, depth, 100)
         val type = buildTypeGrid(grid)
 
-//        val queue = mutableListOf<LocationState>()
         val queue = PriorityQueue<LocationState>()
         queue.add(LocationState(Point(0, 0), 0, Tool.TORCH))
-//        val distances = mutableMapOf<Point, Int>()
         val distances = mutableMapOf<LocationState, Int>()
         while (queue.isNotEmpty()) {
-//            println(queue.size)
             val element = queue.remove()
-//            val key = element.point
-            if (element.point == Point(0,1) && element.distance == 1) {
-                println(element)
-            }
-            if (element.point == Point(1,1) && element.distance == 2) {
-                println(element)
-            }
-            if (element.point == Point(2,1) && element.distance == 10) {
-                println(element)
-            }
-            if (element.point == Point(3,1) && element.distance == 11) {
-                println(element)
-            }
-            if (element.point == Point(4,1) && element.distance == 12) {
-                println(element)
-            }
-            if (element.point == Point(4,2) && element.distance == 20) {
-                println(element)
-            }
-            if (element.point == Point(4,3) && element.distance == 21) {
-                println(element)
-            }
-            if (element.point == Point(4,4) && element.distance == 22) {
-                println(element)
-            }
-            if (element.point == Point(4,5) && element.distance == 23) {
-                println(element)
-            }
-            if (element.point == Point(5,9) && element.distance == 28 && element.tool == Tool.CLIMB) {
-                println(element)
-            }
+            // Group by location and tool
             val key = element.copy(distance = 0)
             val latestDistance = distances.getOrDefault(key, Int.MAX_VALUE)
             if (element.distance < latestDistance) {
@@ -78,15 +45,7 @@ class Day22 : Day() {
                 }
             }
         }
-//        val di = MatrixInt.buildDefault(type.width(), type.height(), 0)
-//        distances.forEach { di.set(it.key, it.value) }
-//        println(di.toString(" ", "\n"))
         println(distances[LocationState(target, 0, Tool.TORCH)])
-//        println(distances[target])
-        // 1104 too high
-        // 1041 too high
-        // 1034 too high
-        // 1023
     }
 
     private fun getStates(
@@ -114,7 +73,7 @@ class Day22 : Day() {
         val fromTools = getTools(from)
         val toTools = getTools(to)
         val toolOptions = fromTools.intersect(toTools)
-        val newTool = if (toolOptions.contains(element.tool)) element.tool else toolOptions.first()
+        var newTool = if (toolOptions.contains(element.tool)) element.tool else toolOptions.first()
         val switchTime = if (newTool == element.tool) 0 else 7
 
         var targetTime = 0
@@ -123,6 +82,7 @@ class Day22 : Day() {
             // The target is always in a rocky region, so if you arrive there with climbing gear equipped, you will
             // need to spend seven minutes switching to your torch.
             if (element.tool != Tool.TORCH) {
+                newTool = Tool.TORCH
                 targetTime = 7
             }
         }
